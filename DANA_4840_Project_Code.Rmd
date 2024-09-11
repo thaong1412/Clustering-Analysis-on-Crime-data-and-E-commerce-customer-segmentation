@@ -1,0 +1,1949 @@
+# DANA 4840_Group Project
+# Part 1 : New York College Offenses Clustering
+
+# New York College Offenses Clustering
+# 1. Data Introduction and purpose of choosing this dataset
+
+## Data introduction 
+
+Dataset for Hierarchical Clustering
+
+Name : New York Offenses Known to Law
+
+Enforcement by University and College, 2019
+
+Data Source : FBI Uniform Crime Reporting (UCR) Program (https://shorturl.at/unSho)
+
+Number of Observations : 27 rows & 12 columns
+
+
+## Purpose
+
+This dataset is incredibly useful for understanding crime trends on college campuses in New York state. Here are some of its key applications:
+
+1. Campus Safety Assessment:
+
+- For students and parents: The data allows prospective students and their families to compare crime rates across different colleges and universities. This information can help them make informed decisions about where to attend.
+
+- For administrators: Colleges and universities can use this data to identify areas of concern and prioritize safety initiatives. They can use the data to target resources to high-crime areas or develop new security measures.
+
+2. Research & Analysis:
+
+- Crime trends: Researchers can analyze the data to identify trends in campus crime over time. For example, they can study whether certain types of crime are increasing or decreasing, and they can explore potential causes.
+
+- Risk factors: Researchers can investigate whether there is a correlation between crime rates and factors such as campus size, student demographics, or the surrounding community.
+
+3. Policy Development:
+Informed policy: Law enforcement agencies and policymakers can use this data to develop effective strategies for preventing and responding to crime on college campuses. For example, they might use the data to target crime prevention programs or to allocate law enforcement resources.
+
+4. Public Awareness:
+Transparency and accountability: By making this data publicly available, colleges and universities promote transparency and accountability in their security measures.
+
+Community engagement: The data can foster a dialogue between law enforcement, college administrators, and the campus community about crime prevention and safety.
+
+Objective: To analyze crime statistics across different universities and colleges in New York and uncover patterns or groupings using hierarchical clustering.
+
+```{r}
+library(readxl)
+library(factoextra)
+library(cluster)
+library(ggplot2)
+library(tidyr)
+
+```
+
+
+
+```{r}
+
+data <- read_excel("file_show.xlsx")
+
+head(data)
+```
+
+```{r}
+# Remove the first row of the data because it's the sum of all campus. 
+data <- data[-1, ]
+
+# Convert tibble to a base R data frame 
+data <- as.data.frame(data)
+
+# Set 'Campus' column as row names
+rownames(data) <- data$Campus
+
+# Remove the 'Campus' column
+df <- data[, -1]
+
+# Print the first few rows of the updated dataframe to confirm
+head(df)
+```
+
+
+```{r}
+# Get the dimensions of the dataset
+dataset_dimensions <- dim(df)
+
+# Print the dimensions
+cat("Number of rows:", dataset_dimensions[1], "\n")
+cat("Number of columns:", dataset_dimensions[2], "\n")
+```
+
+```{r}
+summary(df)
+```
+
+Here are the insights from the dataset of 25 different campuses:
+
+    The average number of students enrolled at each campus is 8783.
+    The average number of violent crimes reported is 3.
+    There are no murders and nonnegligent manslaughters reported.
+    The average number of reported rapes is almost 1.5.
+    The average number of reported robberies is almost 0.2.
+    The average number of reported aggravated assaults is almost 1.
+    The average number of property crimes reported is 55.
+    The average number of reported burglaries is almost 5.
+    The average number of reported larceny-thefts is 50.
+    The average number of reported motor vehicle thefts is almost 0.4.
+    The average number of reported arson incidents is almost 0.2.
+
+
+# 3. EDA 
+
+### Checking for Missing Values
+
+```{r}
+sum(is.na(df))
+```
+```{r}
+# Check for missing values in the entire dataset
+missing_values_summary <- sapply(df, function(x) sum(is.na(x)))
+
+# Print the summary of missing values
+print(missing_values_summary)
+
+```
+
+```{r}
+# Drop rows with missing values
+df <- na.omit(df)
+```
+
+Student enrollment figures of campus Nanoscale Science and Engineering were not available, so we drop this row. 
+
+
+
+### Histograms of numerical variables 
+
+```{r}
+# Load necessary library for plotting
+library(ggplot2)
+
+# Set up plotting area
+par(mfrow=c(3, 2))  # Adjust the layout as needed, here 2 rows and 4 columns
+
+# Plot histograms
+for (col_name in names(df)) {
+  hist(df[[col_name]], main=paste("Histogram of", col_name),
+       xlab=col_name, col='lightblue', border='black')
+}
+
+```
+#summary of the histograms:
+
+1. **Student Enrollment**: The histogram shows a right-skewed distribution, with the majority of schools having student enrollments clustered at the lower end of the range, and a few schools having significantly higher enrollments.
+
+2. **Violent Crime and Its Components**: 
+   - **Violent Crime**: The majority of schools have a low number of violent crimes, with a steep drop-off as the number increases.
+   - **Murder and Non-negligent Manslaughter**: Most schools report very low to no incidents.
+   - **Rape**: The data is right-skewed with most values near zero.
+   - **Robbery**: Similar to rape, most schools report low incidents.
+   - **Aggravated Assault**: Most schools report very few incidents, with a steep decline as incidents increase.
+
+3. **Property Crime and Its Components**:
+   - **Property Crime**: Generally low across schools, with a small number reporting higher incidents.
+   - **Burglary**: Most schools report very few incidents.
+   - **Larceny-Theft**: Few schools report high incidents, but most are low.
+   - **Motor Vehicle Theft**: Most schools report very few incidents.
+   - **Arson**: Most schools report very low or no incidents, with a few exceptions.
+
+4. **Frequency Distribution**: Across all categories, the data is typically right-skewed, indicating that most schools have low to moderate crime rates, with a few schools experiencing higher rates.
+
+5. **Overall Trends**: The histograms illustrate that while most schools experience low levels of both violent and property crimes, certain types of crimes like larceny-theft and property crime tend to have more frequent higher incidents compared to others like murder, motor vehicle theft, and arson.
+
+
+The column Murder and nonnegligent manslaughter has all value of 0 across the campus so we're going to drop it. We decided to drop this column. 
+
+```{r}
+# Drop the column "Murder and nonnegligent manslaughter"
+df <- df[, -3]
+
+```
+
+
+### Create a Pair Plot with Color by Type
+
+
+```{r}
+
+
+
+# Create the pair plot
+pairs(df, main = "Pair Plot", col = "blue")
+
+# Save the pair plot as a PNG file with higher resolution
+#png("pair_plot.png", width = 2000, height = 2000, res = 300)
+
+
+```
+
+Property Crime and Larceny-Theft are extremely strongly correlated, and there is a significant positive relationship between several types of crimes and student enrollment.
+
+### Check for Correlations Between Variables
+
+```{r}
+# Compute the correlation matrix
+correlation_matrix <- cor(df, use = "complete.obs")
+
+# Find pairs with correlation > 0.7 or < -0.7
+high_cor_pairs <- which(abs(correlation_matrix) > 0.7 & abs(correlation_matrix) < 1, arr.ind = TRUE)
+
+# Print the pairs with high correlation
+if (nrow(high_cor_pairs) > 0) {
+  for (i in 1:nrow(high_cor_pairs)) {
+    var1 <- rownames(correlation_matrix)[high_cor_pairs[i, 1]]
+    var2 <- colnames(correlation_matrix)[high_cor_pairs[i, 2]]
+    cor_value <- correlation_matrix[high_cor_pairs[i, 1], high_cor_pairs[i, 2]]
+    cat(var1, "&", var2, ": ", cor_value, "\n")
+  }
+} else {
+  cat("No pairs with correlation > 0.7 or < -0.7 found.")
+}
+```
+
+Summary of the pair plot with the provided correlation values:
+
+1. **Student Enrollment vs. Crime Types**:
+   - **Student Enrollment and Violent Crime**: There is a strong positive correlation (0.7426) between student enrollment and violent crime, indicating that schools with higher enrollments tend to report more violent crimes.
+   - **Student Enrollment and Property Crime**: An even stronger positive correlation (0.7952) suggests that larger schools also tend to have higher property crime rates.
+   - **Student Enrollment and Larceny-Theft**: A strong positive correlation (0.7900) exists between student enrollment and larceny-theft, indicating that this type of property crime is more prevalent in larger schools.
+
+2. **Violent Crime Correlations**:
+   - **Violent Crime and Aggravated Assault**: There is a strong positive correlation (0.8251), indicating that schools with higher violent crime rates also tend to have higher rates of aggravated assault.
+   - **Violent Crime and Property Crime**: A strong positive correlation (0.8491) suggests that schools with higher violent crime rates also report higher property crime rates.
+   - **Violent Crime and Larceny-Theft**: There is a strong positive correlation (0.8447) between violent crime and larceny-theft.
+
+3. **Property Crime Correlations**:
+   - **Property Crime and Aggravated Assault**: A very strong positive correlation (0.8581) indicates that schools with higher property crime rates also experience higher rates of aggravated assault.
+   - **Property Crime and Larceny-Theft**: There is an extremely high positive correlation (0.9978), indicating that larceny-theft is a significant component of property crime.
+   - **Larceny-Theft and Aggravated Assault**: A strong positive correlation (0.8577) exists between larceny-theft and aggravated assault.
+
+4. **Inter-Crime Correlations**:
+   - The pair plot and the correlation values indicate significant interdependencies among different crime types, with strong correlations observed between violent and property crimes, as well as between specific types of crimes such as aggravated assault and larceny-theft.
+
+### Create the box plot
+
+
+```{r}
+
+library(tidyr)
+library(dplyr)
+
+# Reshape the data for ggplot2
+subset_df_long <- pivot_longer(df, cols = everything(), names_to = "variable", values_to = "value")
+
+# List of unique variables
+variables <- unique(subset_df_long$variable)
+
+# Create and print separate box plots for each variable
+for (var in variables) {
+  # Filter data for the current variable
+  data <- subset_df_long %>% filter(variable == var)
+  
+  # Create the box plot
+  p <- ggplot(data, aes(x = variable, y = value)) +
+    geom_boxplot() +
+    labs(title = paste("Box Plot of", var), x = var, y = "Value") +
+    theme_minimal()
+  
+  # Print the plot
+  print(p)
+}
+```
+
+There are a few outliers for each variable, but this is because certain campuses have higher crime rates than others, and it is important to retain these for further analysis."
+
+This revised sentence provides a clearer explanation of the reasoning behind keeping the outliers for further analysis.
+
+```{r}
+# Function to identify outliers based on IQR
+find_outliers <- function(x) {
+  Q1 <- quantile(x, 0.25)
+  Q3 <- quantile(x, 0.75)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  x[x < lower_bound | x > upper_bound]
+}
+
+# Create an empty list to store outlier data
+outliers_list <- list()
+
+# Identify outliers for each column and store in the list
+for (i in seq_along(df)) {
+  outliers <- find_outliers(df[[i]])
+  if (length(outliers) > 0) {
+    outliers_list[[names(df)[i]]] <- outliers
+  }
+}
+outliers_list
+
+```
+# 3. Assessing clustering tendency
+
+```{r}
+df.scaled <- scale(df)
+
+head(df.scaled)
+```
+
+```{r}
+library("factoextra")
+```
+
+#### Visual inspection of the data
+
+```{r}
+fviz_pca_ind(prcomp(df.scaled), title = "PCA - Police data",  
+            habillage = "none",  palette = "jco",
+            geom = "point", ggtheme = theme_classic(),
+           legend = "bottom")
+```
+#summary of the PCA plot:
+
+1. **Principal Components**: The first principal component (Dim1) explains 55% of the variance in the data, while the second principal component (Dim2) explains 15.3% of the variance. Together, these two components capture 70.3% of the total variance, indicating that a significant amount of the data's structure can be understood through these two dimensions.
+
+2. **Data Distribution**: The plot shows a cluster of data points around the origin, indicating that most schools have similar characteristics regarding the variables studied. A few data points are outliers, particularly in the positive direction along Dim1, suggesting that some schools have unique characteristics or higher incidences of certain variables compared to the rest.
+
+```{r}
+#library(factoextra)
+# K-means on iris dataset
+km.res <- kmeans(df.scaled, 2)
+fviz_cluster(list(data = df.scaled, cluster = km.res$cluster),
+            ellipse.type = "norm", geom = "point", stand = FALSE,
+           palette = "jco", ggtheme = theme_classic())
+
+```
+The plot displays two distinct clusters in the PCA-reduced space. Cluster 1 (blue circles) is more widely spread, indicating greater variability among its data points. In contrast, Cluster 2 (yellow triangles) is more tightly grouped, suggesting higher similarity among its members.
+
+#### Hopkins Statistic
+
+We can conduct the Hopkins Statistic test iteratively, using 0.5 as the threshold to reject the alternative hypothesis. That is, if H < 0.5, then it is unlikely that D has statistically significant clusters.
+
+```{r}
+library(hopkins)
+hopkins::hopkins(df.scaled)
+```
+
+#### Visual methods
+
+Compute the dissimilarity (DM) matrix between the objects in the data set using the Euclidean distance measure
+
+```{r}
+fviz_dist(dist(df.scaled), show_labels = FALSE)+
+  labs(title = "Police data")
+```
+
+
+# 4. Hierarchical clustering
+
+
+```{r}
+# Compute the dissimilarity matrix
+# df = the standardized data
+res.dist <- dist(df.scaled, method = "euclidean")
+
+```
+
+```{r}
+as.matrix(res.dist)[1:6, 1:6]
+```
+
+#### Ward Linkage 
+
+```{r}
+res.hc <- hclust( d= res.dist, method = "ward.D2")
+
+#  "ward.D2", "single", "complete"
+```
+
+```{r}
+library(factoextra)
+
+fviz_dend(res.hc, cex =0.5)
+```
+
+```{r}
+# Compute cophentic distance 
+
+res.coph <- cophenetic(res.hc)
+
+# Correlation between cophentic distance and the original distance 
+
+cor(res.dist, res.coph)
+```
+
+
+```{r}
+# Cut tree into 4 groups 
+
+grp <- cutree(res.hc, k =4)
+
+head(grp, n =4)
+```
+
+
+```{r}
+# Number of members in each cluster
+
+table(grp)
+```
+
+```{r}
+# Get the names for the members of cluster 1
+
+rownames(df)[grp ==1]
+```
+
+```{r}
+# Create a data frame with the scaled data and cluster assignments
+df_clustered <- data.frame(df.scaled, cluster = factor(grp))
+
+# Define a common color palette
+color_palette <- c("#619CFF", "#00BA38", "#C77CFF", "#F8766D")
+
+# Create a named vector for cluster colors
+cluster_colors <- color_palette[as.numeric(df_clustered$cluster)]
+
+# Plot the dendrogram with consistent colors
+fviz_dend(res.hc, k = 4,
+          cex = 0.5,
+          k_colors = color_palette,  # Use the defined color palette
+          color_labels_by_k = TRUE, 
+          rect = TRUE)
+```
+#Group Composition:
+Group 1: Comprises Buffalo, State College, and Stony Brook, indicating these three institutions have distinct characteristics separating them significantly from the others.
+Group 2: Includes Binghamton, Delhi, Morrisville, and Oswego, which are moderately similar to each other.
+Group 3: Contains Upstate Medical alone, suggesting it has unique characteristics distinct from the other clusters.
+Group 4: Consists of Oneonta, Cobleskill, Purchase, Maritime, State Medical, Optometry, Tech Institute, Alfred, Brockport, Farmingdale, New Paltz, Plattsburgh, Potsdam, Canton, Cortland, and Geneseo, forming a larger and more diverse cluster with greater internal variability.
+
+
+```{r}
+fviz_cluster(list(data = df.scaled, cluster = grp),
+             ellipse.type = "convex", 
+             repel = TRUE,
+             show.clust.cent = FALSE, 
+             ggtheme = theme_minimal(),
+             palette = c("#F8766D", "#00BA38", "#619CFF", "#C77CFF"))
+```
+The above graph plots the clusters formed using Ward's linkage method.
+
+#### Average Linkage 
+```{r}
+res.hc2 <- hclust(res.dist, method = "average")
+
+# Correlation between cophentic distance and the original distance 
+
+cor(res.dist, cophenetic(res.hc2))
+
+```
+
+```{r}
+
+fviz_dend(res.hc2, cex =0.5)
+```
+
+```{r}
+# Cut in 4 groups and color by groups 
+
+fviz_dend(res.hc2, k =4,
+          cex =0.5,
+          color_labels_by_k = TRUE, 
+          k_colors = color_palette,
+          rect = TRUE)
+```
+#Group Composition:
+
+Group 1: Comprises Buffalo alone, indicating it has unique characteristics separating it significantly from the others.
+Group 2: Includes State College and Stony Brook, which are moderately similar to each other.
+Group 3: Contains Upstate Medical alone, suggesting it has unique characteristics distinct from the other clusters.
+Group 4: Consists of the remaining institutions: Binghamton, Delhi, Morrisville, Oswego, Maritime, Downstate Medical, Optometry, Polytechnic Institute, Alfred, Brockport, Farmingdale, New Paltz, Plattsburgh, Potsdam, Canton, Cortland, Geneseo, Oneonta, Cobleskill, and Purchase. This larger cluster indicates greater internal variability and includes institutions with more similar characteristics within this group.
+
+```{r}
+fviz_cluster(list(data = df.scaled, cluster = cutree(res.hc2, k =4)),
+             ellipse.type = "convex", 
+             repel = TRUE,
+             show.clust.cent = FALSE, 
+             palette = c("#F8766D","#C77CFF", "#00BA38", "#619CFF"),
+             ggtheme = theme_minimal())
+```
+
+#### Complete  Linkage 
+```{r}
+res.hc3 <- hclust(res.dist, method = "complete")
+
+# Correlation between cophentic distance and the original distance 
+
+cor(res.dist, cophenetic(res.hc3))
+
+```
+
+```{r}
+fviz_dend(res.hc3, cex =0.5)
+```
+
+```{r}
+# Cut in 4 groups and color by groups 
+
+fviz_dend(res.hc3, k =4,
+          cex =0.5,
+          color_labels_by_k = TRUE, 
+          k_colors = color_palette,
+          rect = TRUE)
+```
+Group Composition:
+
+Group 1: Comprises Buffalo alone, indicating it has unique characteristics separating it significantly from the others.
+Group 2: Includes State College, Binghamton, and Stony Brook, indicating these three institutions have moderately similar characteristics.
+Group 3: Contains Upstate Medical alone, suggesting it has unique characteristics distinct from the other clusters.
+Group 4: Consists of the remaining institutions: Delhi, Morrisville, Oswego, Maritime, Downstate Medical, Optometry, Polytechnic Institute, Alfred, Brockport, Farmingdale, New Paltz, Plattsburgh, Potsdam, Canton, Cortland, Geneseo, Oneonta, Cobleskill, and Purchase. This larger cluster indicates greater internal variability and includes institutions with more similar characteristics within this group.
+
+```{r}
+fviz_cluster(list(data = df.scaled, cluster = cutree(res.hc3, k =4)),
+             ellipse.type = "convex", 
+             repel = TRUE,
+             show.clust.cent = FALSE,
+             palette = c("#F8766D","#00BA38","#C77CFF", "#619CFF"),
+             ggtheme = theme_minimal())
+```
+
+#### Single Linkage 
+```{r}
+res.hc4 <- hclust(res.dist, method = "single")
+
+# Correlation between cophentic distance and the original distance 
+
+cor(res.dist, cophenetic(res.hc4))
+
+```
+
+```{r}
+
+fviz_dend(res.hc4, cex =0.5)
+```
+
+```{r}
+# Cut in 4 groups and color by groups 
+
+fviz_dend(res.hc4, k =4,
+          cex =0.5,
+          color_labels_by_k = TRUE,
+          k_colors = color_palette,
+          rect = TRUE)
+```
+#Group Composition:
+Group 1: Comprises Buffalo alone, indicating it has unique characteristics separating it significantly from the others.
+Group 2: Includes Binghamton, Maritime, Downstate Medical, Farmingdale, Alfred, Brockport, Polytechnic Institute, Optometry, Canton, Cortland, Geneseo, Potsdam, Oneonta, Cobleskill, Purchase, New Paltz, Plattsburgh, Delhi, Morrisville, and Oswego. This large group indicates a high level of internal variability and includes institutions with similar characteristics.
+Group 3: Contains Buffalo State College alone, suggesting it has unique characteristics distinct from the other clusters.
+Group 4: Includes only Stony Brook, indicating it has distinct characteristics separating it from the others.
+
+```{r}
+fviz_cluster(list(data = df.scaled, cluster = cutree(res.hc4, k =4)),
+             ellipse.type = "convex", 
+             repel = TRUE,
+             show.clust.cent = FALSE, 
+             palette = c("#00BA38","#619CFF","#C77CFF","#F8766D"),
+             ggtheme = theme_minimal())
+```
+
+# 5. Compare dendrograms
+
+#### Visual Comparison of two dendrograms
+
+```{r}
+library(dendextend)
+
+
+# Create two dendrograms
+dend1 <- as.dendrogram (res.hc) # Ward.D2
+dend2 <- as.dendrogram (res.hc2) # Average
+dend3 <- as.dendrogram (res.hc3) # Comple
+dend4 <- as.dendrogram (res.hc4) # Single
+
+```
+
+```{r}
+# Plot dendrograms
+par(mfrow = c(2, 2))  # Set layout for multiple plots
+
+# Plot each dendrogram
+plot(dend1, main = "Ward.D2 Method")
+plot(dend2, main = "Average Method")
+plot(dend3, main = "Complete Method")
+plot(dend4, main = "Single Method")
+```
+
+```{r}
+# Create tanglegrams and compute entanglement
+tanglegram(dend1, dend2, main = "Tanglegram: Ward.D2 vs Average")
+entanglement_value <- entanglement(dend1, dend2)
+print(paste("Entanglement between Ward.D2 and Average:", entanglement_value))
+
+tanglegram(dend1, dend3, main = "Tanglegram: Ward.D2 vs Complete")
+entanglement_value <- entanglement(dend1, dend3)
+print(paste("Entanglement between Ward.D2 and Complete:", entanglement_value))
+
+tanglegram(dend1, dend4, main = "Tanglegram: Ward.D2 vs Single")
+entanglement_value <- entanglement(dend1, dend4)
+print(paste("Entanglement between Ward.D2 and Single:", entanglement_value))
+
+tanglegram(dend2, dend3, main = "Tanglegram: Average vs Complete")
+entanglement_value <- entanglement(dend2, dend3)
+print(paste("Entanglement between Average and Complete:", entanglement_value))
+
+tanglegram(dend2, dend4, main = "Tanglegram: Average vs Single")
+entanglement_value <- entanglement(dend2, dend4)
+print(paste("Entanglement between Average and Single:", entanglement_value))
+
+tanglegram(dend3, dend4, main = "Tanglegram: Complete vs Single")
+entanglement_value <- entanglement(dend3, dend4)
+print(paste("Entanglement between Complete and Single:", entanglement_value))
+```
+
+Based on the entanglement values calculated between different pairs of dendrograms, we can derive the following insights:
+
+    Ward.D2 vs Average (Entanglement: 0.22):
+        This indicates a relatively low level of entanglement, suggesting that the Ward.D2 and Average linkage methods produce somewhat similar clustering structures.
+
+    Ward.D2 vs Complete (Entanglement: 0.08):
+        This very low entanglement value indicates that the clustering structures produced by the Ward.D2 and Complete linkage methods are very similar.
+
+    Ward.D2 vs Single (Entanglement: 0.64):
+        This higher entanglement value suggests significant differences in the clustering structures produced by the Ward.D2 and Single linkage methods.
+
+    Average vs Complete (Entanglement: 0.14):
+        This indicates a low level of entanglement, suggesting that the Average and Complete linkage methods produce similar clustering structures.
+
+    Average vs Single (Entanglement: 0.50):
+        This moderate entanglement value indicates noticeable differences between the clustering structures produced by the Average and Single linkage methods.
+
+    Complete vs Single (Entanglement: 0.52):
+        This moderate entanglement value suggests that the clustering structures produced by the Complete and Single linkage methods are different.
+
+Summary:
+
+- Most Similar Methods: Ward.D2 and Complete linkage methods show the most similar clustering structures with an entanglement of 0.08.
+- Most Different Methods: Ward.D2 and Single linkage methods show the most different clustering structures with an entanglement of 0.64.
+- Overall Trends: Methods like Ward.D2 and Complete, as well as Average and Complete, tend to produce similar clustering results, while the Single linkage method tends to produce clustering results that are more different from the other methods.
+    
+#### Correlation matrix between a list of dendrograms
+
+```{r}
+# Compute cophenetic correlation matrix
+dend_list <- dendlist(dend1, dend2, dend3, dend4)
+coph_cor <- cor.dendlist(dend_list, method = "cophenetic")
+print("Cophenetic correlation matrix",coph_cor)
+
+print(coph_cor)
+
+```
+
+The highest correlation (0.974) is between the dendrograms created by the Average and Single linkage methods, indicating they produce very similar clustering structures.
+
+The lowest correlation (0.878) is between the dendrograms created by the Ward.D2 and Complete linkage methods, suggesting these methods produce somewhat different clustering structures compared to the other pairings.
+
+```{r}
+# Compute Baker correlation matrix
+baker_cor <- cor.dendlist(dend_list, method = "baker")
+print("Baker correlation matrix", baker_cor)
+print(baker_cor)
+```
+The highest correlation (0.965) is between the Average and Single linkage methods, consistent with the cophenetic correlation matrix.
+
+The lowest correlation (0.870) is between the Ward.D2 and Single linkage methods, indicating some difference in clustering structures between these methods, but still relatively high correlation.
+
+# 6. Choosing the best number of clusters
+
+#### Elbow method
+
+```{r}
+fviz_nbclust(df.scaled, kmeans, iter.max = 10, nstart = 25, method = "wss") +
+    geom_vline(xintercept = 2, linetype = 2)+
+  labs(subtitle = "Elbow method")
+
+```
+#### Silhouette method
+```{r}
+fviz_nbclust(df.scaled, kmeans, iter.max = 10, nstart = 25, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+
+```
+#### Gap statistic
+```{r}
+# nboot = 50 to keep the function speedy. 
+# recommended value: nboot= 500 for your analysis.
+# Use verbose = FALSE to hide computing progression.
+set.seed(123)
+fviz_nbclust(df.scaled, kmeans,iter.max = 10, nstart = 25,  method = "gap_stat", nboot = 50)+
+  labs(subtitle = "Gap statistic method")
+
+```
+
+- Elbow method: 2 clusters solution suggested
+
+- Silhouette method: 2 clusters solution suggested
+
+- Gap statistic method: 1 clusters solution suggested
+
+
+# 7. Clustering validation
+
+```{r}
+library(clValid)
+```
+
+```{r}
+# Compute clValid
+clmethods <- c("hierarchical","kmeans","pam")
+
+intern <- clValid(df.scaled, nClust = 2:6, 
+              clMethods = clmethods, validation = "internal")
+# Summary
+summary(intern)
+```
+It can be seen that hierarchical clustering with two clusters performs the best in each case for connectivity and Silhouette measures). 
+
+However, the number of clusters is appropriate based on the Dunn index is 5 and 6. 
+
+```{r}
+op <- par(no.readonly=TRUE)
+par(mfrow=c(2,2), mar=c(4,4,3,1))
+plot(intern, legend=FALSE)
+plot(nClusters(intern), measures(intern, "Dunn")[,,1], type="n", axes=FALSE, xlab="", ylab="")
+legend("center", clusterMethods(intern), col=1:9, lty=1:9, pch=paste(1:9))
+par(op)
+```
+
+
+#### Visualization:
+
+```{r}
+# K-means clustering
+km.res1 <- eclust(df.scaled, "kmeans", k = 2, nstart = 25, graph = FALSE)
+# Visualize k-means clusters
+fviz_cluster(km.res1, geom = "point", ellipse.type = "norm",
+             palette = "jco", ggtheme = theme_minimal())
+```
+
+```{r}
+fviz_silhouette(km.res1, palette = "jco", 
+                ggtheme = theme_classic())
+```
+The silhouette coefficient (Si) measures how similar an object i is to the
+the other objects in its own cluster versus those in the neighbor cluster. Si values
+range from 1 to - 1:
+
+- A value of Si close to 1 indicates that the object is well clustered. In the other
+words, the object i is similar to the other objects in its group.
+- A value of Si close to -1 indicates that the object is poorly clustered, and that
+assignment to some other cluster would probably improve the overall results.
+
+```{r}
+# Silhouette information
+silinfo <- km.res1$silinfo
+ names(silinfo)
+# Silhouette widths of each observation
+ head(silinfo$widths[, 1:3], 10)
+```
+
+```{r}
+# Silhouette width of observation
+sil <- km.res1$silinfo$widths[, 1:3]
+
+# Objects with negative silhouette
+neg_sil_index <- which(sil[, 'sil_width'] < 0)
+sil[neg_sil_index, , drop = FALSE]
+```
+
+```{r}
+# Average silhouette width of each cluster
+silinfo$clus.avg.widths
+```
+
+```{r}
+# The total average (mean of all individual silhouette widths)
+ silinfo$avg.width
+```
+
+# 8. Stability Measures
+
+```{r}
+# Stability measures
+clmethods <- c("hierarchical","kmeans","pam")
+stab <- clValid(df.scaled, nClust = 2:6, clMethods = clmethods, 
+                validation = "stability")
+
+# Display only optimal Scores
+summary(stab)
+```
+
+```{r}
+par(mfrow=c(2,2), mar=c(4,4,3,1))
+plot(stab, measure=c("APN", "AD", "ADM", "FOM"), legend=FALSE)
+plot(nClusters(stab), measures(stab, "APN")[,,1], type="n", axes=FALSE, xlab="", ylab="")
+legend("center", clusterMethods(stab), col=1:9, lty=1:9, pch=paste(1:9))
+```
+# 9. DBSCAN
+
+```{r}
+# Load necessary library
+library(dbscan)
+```
+
+
+**EPS**
+defines the radius of the neighborhood around a point. If the distance between two points is less than or equal to eps, they are considered neighbors. This neighborhood concept is crucial for determining core points, border points, and noise points:
+
+**Core Point**: A point that has at least minPts neighbors within a distance eps.
+**Border Point**: A point that has fewer than minPts neighbors but lies within the eps distance of a core point.
+**Noise Point**: A point that is neither a core point nor a border point.
+
+#The k-distance plot is a method to help choose a suitable eps value:
+
+k-distance: For each point, calculate the distance to its k-th nearest neighbor. Typically, k is set to minPts - 1.
+Sort and Plot: Sort these k-distances in ascending order and plot them.
+The "elbow" point in this plot, where the k-distance sharply increases, helps to identify a suitable eps. This point indicates the transition from dense to sparse regions.
+
+#Why We Choose eps This Way:
+**Density Definition**: The k-distance plot helps us visualize the density of points. The "elbow" point represents the maximum distance where most points are still within a dense region.
+**Avoiding Noise**: By choosing eps at the elbow, we ensure that points within this distance are considered part of a cluster, while points beyond this distance are treated as noise or separate clusters.
+**Cluster Separation*: This method helps in separating clusters by ensuring that the eps value is not too small (which would result in too many small clusters) or too large (which would merge distinct clusters).
+
+```{r}
+# Convert df.scaled to a matrix
+df.matrix <- as.matrix(df.scaled)
+
+# Compute the distance to the k-th nearest neighbor (k = minPts - 1)
+k <- 2  # Since minPts is 5
+kNNdistplot(df.matrix, k = k)
+
+# Add a horizontal line at a potential eps value
+abline(h = 4.5, col = "red", lty = 2)  # Adjust based on your plot
+
+```
+```{r}
+# Load necessary library
+library(dbscan)
+
+# Define parameters
+eps <- 4.5  # Chosen based on the elbow in the k-distance plot
+minPts <- 3  # Example value for minPts
+
+# Apply DBSCAN with the selected parameters
+db <- dbscan(df.matrix, eps = eps, minPts = minPts)
+
+# Print the clustering results
+print(db)
+
+# Add the cluster labels to the dataset
+df.scaled$cluster <- db$cluster
+
+# View the dataset with cluster labels
+head(df.scaled)
+
+```
+```{r}
+# Load necessary library for PCA and plotting
+library(ggplot2)
+
+# Perform PCA to reduce to 2 dimensions
+pca <- prcomp(df.matrix, scale. = TRUE)
+pca_data <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], cluster = as.factor(db$cluster))
+
+# Plot the PCA result
+ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(size = 2) +
+  labs(title = "DBSCAN Clustering Results (PCA-reduced Data)",
+       x = "Principal Component 1",
+       y = "Principal Component 2") +
+  theme_minimal()
+
+```
+
+
+
+#Results:
+
+Number of Clusters: The DBSCAN algorithm identified a single cluster.
+Noise Points: There are 3 points that are considered noise (outliers) because they do not meet the criteria to be included in any cluster.
+Cluster Distribution:
+
+Cluster 0: Contains 3 points. These are noise points, as indicated by the cluster label 0.
+Cluster 1: Contains 21 points. These points form the single cluster identified by DBSCAN.
+Details of Noise Points:
+
+Noise points are those that do not have enough neighboring points (at least minPts points within eps distance) to form a dense region. In this case, 3 points did not meet this criterion and are thus labeled as noise.
+Detailed Output:
+
+#Comparison of K-Means and DBSCAN Based on PCA Plots
+
+1. **K-Means Clustering**:
+   - Shows two clusters.
+   - This method does not inherently detect noise.
+   - All points are assigned to one of the clusters, including outliers and noise.
+
+2. **DBSCAN Clustering**:
+   - Shows one cluster and identifies noise points.
+   - This method is better at handling noise and outliers, explicitly marking them.
+   - Based on the PCA plot from DBSCAN, we can clearly see that there are 3 outliers which are away from the cluster. DBSCAN was able to detect these outliers, while K-Means was not.
+
+#10. Davies-Bouldin
+
+```{r}
+library(clusterSim)
+```
+
+```{r}
+# Calculate Davies-Bouldin score for K-Means
+kmeans_davies_bouldin <- index.DB(df.matrix, km.res$cluster)$DB
+print(paste("Davies-Bouldin Index for K-Means:", kmeans_davies_bouldin))
+```
+As DBSCAN detected only one valid cluster (and noise), the Davies-Bouldin index cannot be computed as it requires at least two clusters to measure the distances between them.
+
+The Davies-Bouldin Index (DBI) is a measure of clustering quality, where a lower value indicates better-defined clusters.
+
+#Range
+The Davies-Bouldin Index is non-negative and has a minimum value of 0. A DBI of 0 indicates perfect clustering with completely distinct clusters. In practical applications, DBI values typically range from 0 to a few units
+
+DBI < 1: Generally indicates good clustering quality.
+DBI between 1 and 2: Indicates reasonably good clustering quality, though there might be room for improvement.
+DBI > 2: Suggests that clustering quality might be poor and the clusters are not well-separated.
+
+A DBI of 1.075: Suggests that the clusters formed by the K-Means algorithm are relatively well-defined but not perfect.
+
+#Key Difference between Silhouette Score and Davies-Bouldin Index:
+Silhouette Score is more intuitive and interpretable for individual points and overall clustering.
+DBI focuses on cluster separations and compactness, providing a single overall score for clustering quality.
+Both metrics are useful for evaluating and comparing clustering results, with Silhouette Score offering more detailed insight and DBI providing a holistic measure.
+
+
+
+# Part2 : E-commerce Customer Clustering
+
+# Customer clustering
+
+## 1. Data cleaning
+
+### 1.1 load data
+
+```{r}
+# Data manipulation and cleaning
+library(dplyr)
+library(tidyr)
+library(lubridate)
+
+# Visualization
+library(ggplot2)
+library(factoextra)
+library(fmsb)
+
+# Clustering
+library(cluster)
+library(dbscan)
+library(clValid)
+
+# Miscellaneous
+library(broom)
+library(reshape2)
+library(hopkins)
+```
+
+
+```{r}
+# Load customer transaction data
+df = read.csv('C:\\Users\\wudan\\OneDrive - Langara College\\DANA_4840\\PROJECT\\DANA4840_Shared_folder\\customerData\\transaction_data.csv\\transaction_data.csv')
+```
+
+```{r}
+# check dataset structure
+str(df)
+```
+
+```{r}
+head(df)
+```
+
+```{r}
+# rename columns
+names(df)
+names(df) = c('CustomerID','InvoiceNo','InvoiceDate','StockCode','Description','Quantity','UnitPrice','Country')
+names(df)
+```
+
+| **Variable**    | **Description**                                                                                              |
+|:-----------------------------------|:-----------------------------------|
+| **InvoiceNo**   | Code representing each unique transaction. |
+| **StockCode**   | Code uniquely assigned to each distinct product.                                                             |
+| **Description** | Description of each product.                                                                                 |
+| **Quantity**    | The number of units of a product in a transaction.                                                           |
+| **InvoiceDate** | The date and time of the transaction.                                                                        |
+| **UnitPrice**   | The unit price of the product in sterling.                                                                   |
+| **CustomerID**  | Identifier uniquely assigned to each customer.                                                               |
+| **Country**     | The country of the customer.                                                                                 |
+
+```{r}
+summary(df)
+```
+
+```{r}
+# check the nunique of each columns
+library(dplyr)
+
+nunique_df <- df %>% summarise(across(everything(), n_distinct))
+print(nunique_df)
+```
+
+
+
+### 1.2 data imputation (missing value, duplicates,)
+
+#### 1.2.1 Missing value
+```{r}
+# missing value function
+replace_na_values <- function(x) {
+  na_values <- c(" ", "?", "_", "-1")
+  x[x %in% na_values] <- NA
+  return(x)
+}
+
+# Apply the custom function to each column
+df <- df %>% mutate(across(everything(), replace_na_values))
+
+# Count NA values in each column
+na_count_per_column <- df %>% summarise(across(everything(), ~ sum(is.na(.))))
+print(na_count_per_column)
+
+# Count total NA values in the entire dataframe
+total_na_count <- sum(is.na(df))
+print(total_na_count)
+```
+There are 275846 missing values in the df.
+CustomerID : 270160 NA
+StockCode : 5592 NA
+Description : 94 NA
+
+```{r}
+# percentage of missing value in each column
+print(na_count_per_column/nrow(df))
+```
+
+1. The `CustomerID` column contains nearly a quarter of missing data. This column is essential for clustering customers . Imputing such a large percentage of missing values might introduce significant bias or noise into the analysis. Since the clustering is based on customer behavior and preferences, it's crucial to have accurate data on customer identifiers. Therefore, removing the rows with missing `CustomerID`s seems to be the most reasonable approach to maintain the integrity of the clusters and the analysis.
+2. 'StockCode' and 'Description' colunns have missing values rates lower than 1%. So we remove the rows with missing values in 'StockCode' and 'Description' colunns.
+
+```{r}
+# Drop rows with any NA values
+df_clean <- na.omit(df)
+
+summary(df_clean)
+
+# Count total NA values in the entire dataframe
+total_na_count <- sum(is.na(df_clean))
+print(total_na_count)
+```
+#### 1.2.2 Duplicate rows
+```{r}
+# Check for duplicate rows
+duplicate_rows <- df_clean[duplicated(df_clean), ]
+
+# Display duplicate rows
+print("number of Duplicate rows:")
+print(nrow(duplicate_rows))
+
+# Remove duplicate rows
+df_clean <- df_clean %>% distinct()
+
+# Display the dataframe with duplicates removed
+print("Number of rows after removing duplicates:")
+print(nrow(df_clean))
+```
+
+There are 410298 duplicates rows, which suggests that this dataset may have data recording errors.
+We remove all the duplicates rows and then the number of rows of the cleaned dataframe is 399788.
+
+#### 1.2.3 Cancelled Transactions
+```{r}
+summary(df_clean)
+```
+
+From summary, we can notice that there are negative Quantity values. From dataset introduction, we know that there are Cancelled Transactions.
+
+```{r}
+# Select rows with negative Quantity values
+cancel <- df_clean %>% filter(Quantity < 0)
+
+# Display the rows with negative Quantity values
+print("Cancel transactions:")
+print(nrow(cancel))
+
+df_clean <- df_clean %>%
+  mutate(Transaction_Status = ifelse(Quantity < 0, 0, 1))
+
+print(head(df_clean))
+```
+
+
+## 2. featuer engineering
+In this part, we apply feature engineering [1]  to transform customer transaction data into customer centralized data.
+https://www.kaggle.com/code/xunbch/customer-segmentation-recommendation-system/input?select=data.csv 
+
+### 2.1 RFM features: recency,frequency,monetary
+RFM is a method used for analyzing customer value and segmenting the customer base. It is an acronym that stands for:
+
+Recency (R):This metric indicates how recently a customer has made a purchase. A lower recency value means the customer has purchased more recently, indicating higher engagement with the brand.
+    
+Frequency (F):This metric signifies how often a customer makes a purchase within a certain period. A higher frequency value indicates a customer who interacts with the business more often, suggesting higher loyalty or satisfaction.
+    
+Monetary (M):This metric represents the total amount of money a customer has spent over a certain period. Customers who have a higher monetary value have contributed more to the business, indicating their potential high lifetime value.
+    
+Together, these metrics help in understanding a customer's buying behavior and preferences.
+#### 2.1.1 Recency
+Days Since Last Purchas: This feature represents the number of days that have passed since the customer's last purchase. A lower value indicates that the customer has purchased recently, implying a higher engagement level with the business, whereas a higher value may indicate a lapse or decreased engagement. By understanding the recency of purchases, businesses can tailor their marketing strategies to re-engage customers who have not made purchases in a while, potentially increasing customer retention and fostering loyalty.
+
+```{r}
+#install.packages("lubridate")
+library(lubridate)
+
+
+# Remove timezone information and then parse the datetime
+df_clean <- df_clean %>% 
+  mutate(InvoiceDate_no_tz = gsub(" IST", "", InvoiceDate)) %>%
+  mutate(InvoiceDay = as.Date(parse_date_time(InvoiceDate_no_tz, orders = "a b d H:M:S Y")))
+# Remove the InvoiceDay column
+df_clean <- df_clean %>% select(-InvoiceDate_no_tz)
+# Display the first few rows to check the conversion
+print(head(df_clean))
+
+# Remove rows with InvoiceDate after 2019
+df_clean <- df_clean %>% filter(InvoiceDay <= as.Date("2019-12-31"))
+
+# Find the most recent purchase date for each customer
+customer_data <- df_clean %>% group_by(CustomerID) %>% summarise(InvoiceDay = max(InvoiceDay)) %>% ungroup()
+print(head(customer_data))
+# Find the most recent date in the entire dataset
+most_recent_date <- max(df_clean$InvoiceDay)
+print(head(most_recent_date))
+
+# Plot the distribution of most recent purchase dates
+ggplot(customer_data, aes(x = InvoiceDay)) +
+  geom_histogram(binwidth = 30, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Most Recent Purchase Dates", x = "Most Recent Purchase Date", y = "Frequency")
+
+
+# Calculate the number of days since the last purchase for each customer
+customer_data <- customer_data %>% 
+  mutate(Days_Since_Last_Purchase = as.numeric(difftime(most_recent_date, InvoiceDay, units = "days")))
+
+# Remove the InvoiceDay column
+customer_data <- customer_data %>% select(-InvoiceDay)
+
+# Display the resulting dataframe
+print(head(customer_data))
+print(nrow(customer_data))
+```
+
+
+#### 2.1.2 Frequency
+Total Transactions: This feature represents the total number of transactions made by a customer. It helps in understanding the engagement level of a customer with the retailer.
+
+Total Products Purchased: This feature indicates the total number of products (sum of quantities) purchased by a customer across all transactions. It gives an insight into the customer's buying behavior in terms of the volume of products purchased.
+
+```{r}
+# Calculate the total number of transactions made by each customer
+total_transactions <- df_clean %>%
+  group_by(CustomerID) %>%
+  summarise(Total_Transactions = n_distinct(InvoiceNo)) %>%
+  ungroup()
+
+# Calculate the total number of products purchased by each customer
+total_products_purchased <- df_clean %>%
+  group_by(CustomerID) %>%
+  summarise(Total_Products_Purchased = sum(Quantity)) %>%
+  ungroup()
+
+# Merge the new features into the customer_data dataframe
+customer_data <- customer_data %>%
+  left_join(total_transactions, by = "CustomerID") %>%
+  left_join(total_products_purchased, by = "CustomerID")
+
+print(head(customer_data))
+```
+From above table, we can find an outlier, customerID:259266 with a transaction of Quantity 0, Which could be an order by mistake, then it was cancelled.
+```{r}
+print(df %>% filter(CustomerID == 259266))
+```
+
+
+#### 2.1.3 Monetary
+Total Spend: This feature represents the total amount of money spent by each customer. It is calculated as the sum of the product of `UnitPrice` and `Quantity` for all transactions made by a customer. This feature is crucial as it helps in identifying the total revenue generated by each customer, which is a direct indicator of a customer's value to the business.
+
+Average Transaction Value: This feature is calculated as the __Total Spend__ divided by the __Total Transactions__ for each customer. It indicates the average value of a transaction carried out by a customer. This metric is useful in understanding the spending behavior of customers per transaction, which can assist in tailoring marketing strategies and offers to different customer segments based on their average spending patterns.
+
+```{r}
+# Calculate the total spend by each customer
+df_clean <- df_clean %>%
+  mutate(Total_Spend = UnitPrice * Quantity)
+
+total_spend <- df_clean %>%
+  group_by(CustomerID) %>%
+  summarise(Total_Spend = sum(Total_Spend)) %>%
+  ungroup()
+
+# Calculate the average transaction value for each customer
+average_transaction_value <- total_spend %>%
+  left_join(total_transactions, by = "CustomerID") %>%
+  mutate(Average_Transaction_Value = Total_Spend / Total_Transactions)
+
+# Merge the new features into the customer_data dataframe
+customer_data <- customer_data %>%
+  left_join(total_spend, by = "CustomerID") %>%
+  left_join(average_transaction_value %>% select(CustomerID, Average_Transaction_Value), by = "CustomerID")
+
+# Display the first few rows of the customer_data dataframe
+print(head(customer_data))
+```
+### 2.2 Product Diversity
+
+__Unique Products Purchased__: This feature represents the number of distinct products bought by a customer. A higher value indicates that the customer has a diverse taste or preference, buying a wide range of products, while a lower value might indicate a focused or specific preference. Understanding the diversity in product purchases can help in segmenting customers based on their buying diversity, which can be a critical input in personalizing product recommendations.
+
+```{r}
+# get the sum of unique stockcode of each customer
+total_unique_product <- df_clean %>%
+  group_by(CustomerID) %>%
+  summarise(total_unique_product = n_distinct(StockCode)) %>%
+  ungroup()
+
+customer_data <- customer_data %>%
+  left_join(total_unique_product, by = "CustomerID") 
+
+print(head(customer_data))
+```
+### 2.3 Behavioural Features
+
+__Average Days Between Purchases__: This feature represents the average number of days a customer waits before making another purchase. Understanding this can help in predicting when the customer is likely to make their next purchase, which can be a crucial metric for targeted marketing and personalized promotions.
+
+__Favorite Shopping Day__: This denotes the day of the week when the customer shops the most. This information can help in identifying the preferred shopping days of different customer segments, which can be used to optimize marketing strategies and promotions for different days of the week.
+
+__Favorite Shopping Hour__: This refers to the hour of the day when the customer shops the most. Identifying the favorite shopping hour can aid in optimizing the timing of marketing campaigns and promotions to align with the times when different customer segments are most active.
+
+```{r}
+# Extract day of the week and hour from InvoiceDate
+df_clean <- df_clean %>%
+  mutate(InvoiceDate_no_tz = gsub(" IST", "", InvoiceDate)) %>%
+  mutate(InvoiceDate = parse_date_time(InvoiceDate_no_tz, orders = "a b d H:M:S Y"))
+
+# Extract day of the week and hour from InvoiceDate
+df_clean <- df_clean %>%
+  mutate(Day_Of_Week = wday(InvoiceDate, label = TRUE, week_start = 1),
+         Hour = hour(InvoiceDate))
+```
+
+```{r}
+library(tidyr)
+# Calculate the average number of days between consecutive purchases
+days_between_purchases <- df_clean %>%
+  group_by(CustomerID) %>%
+  arrange(CustomerID, InvoiceDate) %>%
+  mutate(Days_Between = as.numeric(difftime(InvoiceDate, lag(InvoiceDate), units = "days"))) %>%
+  ungroup()
+
+average_days_between_purchases <- days_between_purchases %>%
+  group_by(CustomerID) %>%
+  summarise(Average_Days_Between_Purchases = mean(Days_Between, na.rm = TRUE)) %>%
+  ungroup()
+
+# Replace NA values with 0
+average_days_between_purchases <- average_days_between_purchases %>%
+  mutate(Average_Days_Between_Purchases = replace_na(Average_Days_Between_Purchases, 0))
+
+# Find the favorite shopping day of the week
+favorite_shopping_day <- df_clean %>%
+  group_by(CustomerID, Day_Of_Week) %>%
+  summarise(Count = n()) %>%
+  ungroup() %>%
+  arrange(CustomerID, desc(Count)) %>%
+  group_by(CustomerID) %>%
+  slice(1) %>%
+  select(CustomerID, Day_Of_Week)
+
+# Find the favorite shopping hour of the day
+favorite_shopping_hour <- df_clean %>%
+  group_by(CustomerID, Hour) %>%
+  summarise(Count = n()) %>%
+  ungroup() %>%
+  arrange(CustomerID, desc(Count)) %>%
+  group_by(CustomerID) %>%
+  slice(1) %>%
+  select(CustomerID, Hour)
+
+# Merge the new features into the customer_data dataframe
+customer_data <- customer_data %>%
+  left_join(average_days_between_purchases, by = "CustomerID") %>%
+  left_join(favorite_shopping_day, by = "CustomerID") %>%
+  left_join(favorite_shopping_hour, by = "CustomerID")
+```
+```{r}
+head(customer_data)
+```
+### 2.4 Geographic features
+
+__Country__: This feature identifies the country where each customer is located. Including the country data can help us understand region-specific buying patterns and preferences. Different regions might have varying preferences and purchasing behaviors which can be critical in personalizing marketing strategies and inventory planning. Furthermore, it can be instrumental in logistics and supply chain optimization, particularly for an online retailer where shipping and delivery play a significant role.
+
+```{r}
+# Calculate the normalized value counts for the 'Country' column
+country_counts <- df_clean %>%
+  group_by(Country) %>%
+  summarise(Count = n()) %>%
+  mutate(Proportion = Count / sum(Count)) %>%
+  arrange(desc(Proportion)) %>%
+  ungroup()
+
+# Display the top results
+head(country_counts)
+```
+Given that a substantial portion (__89%__) of transactions are originating from the __United Kingdom__, we might consider creating a binary feature indicating whether the transaction is from the UK or not. This approach can potentially streamline the clustering process without losing critical geographical information, especially when considering the application of algorithms like K-means which are sensitive to the dimensionality of the feature space.
+
+```{r}
+# Group by CustomerID and Country to get the number of transactions per country for each customer
+customer_country <- df_clean %>%
+  group_by(CustomerID, Country) %>%
+  summarise(Number_of_Transactions = n()) %>%
+  ungroup()
+
+# Get the country with the maximum number of transactions for each customer
+customer_main_country <- customer_country %>%
+  arrange(CustomerID, desc(Number_of_Transactions)) %>%
+  group_by(CustomerID) %>%
+  slice(1) %>%
+  ungroup()
+
+# Create a binary column indicating whether the customer is from the UK or not
+customer_main_country <- customer_main_country %>%
+  mutate(Is_UK = ifelse(Country == 'United Kingdom', 1, 0))
+
+# Assuming customer_data is already defined
+customer_data <- customer_data %>%
+  left_join(customer_main_country %>% select(CustomerID, Is_UK), by = "CustomerID")
+
+print(head(customer_data))
+```
+
+### 2.5 Cancellation Insights
+
+__Cancellation Frequency__: This metric represents the total number of transactions a customer has canceled. Understanding the frequency of cancellations can help us identify customers who are more likely to cancel transactions. This could be an indicator of dissatisfaction or other issues, and understanding this can help us tailor strategies to reduce cancellations and enhance customer satisfaction.
+
+    
+__Cancellation Rate__: This represents the proportion of transactions that a customer has canceled out of all their transactions. This metric gives a normalized view of cancellation behavior. A high cancellation rate might be indicative of an unsatisfied customer segment. By identifying these segments, we can develop targeted strategies to improve their shopping experience and potentially reduce the cancellation rate.
+
+```{r}
+# Calculate the number of cancelled transactions for each customer
+cancelled_transactions <- df_clean %>%
+  filter(Transaction_Status == 0) %>%
+  group_by(CustomerID) %>%
+  summarise(Cancellation_Frequency = n_distinct(InvoiceNo)) %>%
+  ungroup()
+
+# Merge the Cancellation Frequency data into the customer_data dataframe
+customer_data <- customer_data %>%
+  left_join(cancelled_transactions, by = "CustomerID")
+
+# Replace NA values with 0 (for customers who have not cancelled any transaction)
+customer_data <- customer_data %>%
+  mutate(Cancellation_Frequency = ifelse(is.na(Cancellation_Frequency), 0, Cancellation_Frequency))
+
+print(head(customer_data))
+```
+
+```{r}
+# Calculate the Cancellation Rate = cancel count /total transaction count
+customer_data <- customer_data %>%
+  mutate(Cancellation_Rate = Cancellation_Frequency / Total_Transactions)
+
+print(head(customer_data))
+```
+
+### 2.6 Seasonality & Trends
+
+__Monthly_Spending_Mean__: This is the average amount a customer spends monthly. It helps us gauge the general spending habit of each customer. A higher mean indicates a customer who spends more, potentially showing interest in premium products, whereas a lower mean might indicate a more budget-conscious customer.
+
+    
+__Monthly_Spending_Std__: This feature indicates the variability in a customer's monthly spending. A higher value signals that the customer's spending fluctuates significantly month-to-month, perhaps indicating sporadic large purchases. In contrast, a lower value suggests more stable, consistent spending habits. Understanding this variability can help in crafting personalized promotions or discounts during periods they are expected to spend more.
+
+    
+__Spending_Trend__: This reflects the trend in a customer's spending over time, calculated as the slope of the linear trend line fitted to their spending data. A positive value indicates an increasing trend in spending, possibly pointing to growing loyalty or satisfaction. Conversely, a negative trend might signal decreasing interest or satisfaction, highlighting a need for re-engagement strategies. A near-zero value signifies stable spending habits. Recognizing these trends can help in developing strategies to either maintain or alter customer spending patterns, enhancing the effectiveness of marketing campaigns.
+
+```{r}
+#install.packages("broom")
+library(broom)
+
+# Extract month and year from InvoiceDate
+df_clean <- df_clean %>%
+  mutate(Year = year(InvoiceDate),
+         Month = month(InvoiceDate))
+
+# Assuming Total_Spend is already calculated in df_clean
+monthly_spending <- df_clean %>%
+  group_by(CustomerID, Year, Month) %>%
+  summarise(Total_Spend = sum(Total_Spend)) %>%
+  ungroup()
+
+# Calculate seasonal buying patterns
+seasonal_buying_patterns <- monthly_spending %>%
+  group_by(CustomerID) %>%
+  summarise(Monthly_Spending_Mean = mean(Total_Spend, na.rm = TRUE),
+            Monthly_Spending_Std = sd(Total_Spend, na.rm = TRUE)) %>%
+  ungroup()
+
+# Replace NA values in Monthly_Spending_Std with 0
+seasonal_buying_patterns <- seasonal_buying_patterns %>%
+  mutate(Monthly_Spending_Std = ifelse(is.na(Monthly_Spending_Std), 0, Monthly_Spending_Std))
+
+
+
+```
+```{r}
+# Define a function to calculate the spending trend
+calculate_trend <- function(spend_data) {
+  if (nrow(spend_data) > 1) {
+    model <- lm(Total_Spend ~ Month + Year, data = spend_data)
+    slope <- coef(model)["Month"]
+    return(slope)
+  } else {
+    return(0)
+  }
+}
+
+# Apply the calculate_trend function to find the spending trend for each customer
+spending_trends <- monthly_spending %>%
+  group_by(CustomerID) %>%
+  do(Spending_Trend = calculate_trend(.)) %>%
+  unnest(cols = c(Spending_Trend))
+
+# Assuming customer_data is already defined
+customer_data <- customer_data %>%
+  left_join(seasonal_buying_patterns, by = "CustomerID") %>%
+  left_join(spending_trends, by = "CustomerID")
+
+
+customer_data <- customer_data %>%
+  mutate(Spending_Trend = ifelse(is.na(Spending_Trend), 0, Spending_Trend))
+
+# Display the first few rows of the customer_data dataframe
+head(customer_data)
+
+
+```
+
+```{r}
+print(str(customer_data))
+```
+After this step, we build up all the features needed for the customer clustering.
+We have 15 features, covering from Purchase recency, frequency, monetart, product diversity, behavioural features, geographic features, cancellation insights and seasonality and trends.
+
+## 3. Outlier Detection - DBSCAN
+
+```{r}
+# convert day of week to numeric
+
+# Check the levels of Day_Of_Week
+levels(customer_data$Day_Of_Week)
+
+customer_data <- customer_data %>%
+  mutate(Day_Of_Week = factor(Day_Of_Week, levels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), ordered = TRUE))
+
+# Convert Day_Of_Week to numeric ordinal values
+customer_data <- customer_data %>%
+  mutate(Day_Of_Week = as.numeric(Day_Of_Week))
+
+head(customer_data)
+```
+
+Use dbscan to detect outliers
+```{r}
+library(dbscan)
+
+# Remove the CustomerID column
+customer_data_no_id <- customer_data %>%
+  select(-CustomerID)
+
+# Scale the data
+scaled_customer_data <- scale(customer_data_no_id)
+kNNdistplot(scaled_customer_data, 4)
+
+```
+
+```{r}
+summary(scaled_customer_data)
+```
+
+
+```{r}
+# Apply DBSCAN
+dbscan_result <- dbscan(scaled_customer_data, eps = 2, minPts = 5)
+
+dbscan_result
+138/4358
+```
+
+From dbscan result, we detect 138 outliers, outliers percentage 3.17%.
+
+```{r}
+# Convert the scaled data back to a dataframe
+scaled_customer_data_df <- as.data.frame(scaled_customer_data)
+
+# Add the cluster assignment to the scaled_customer_data dataframe
+scaled_customer_data_with_cluster <- scaled_customer_data_df %>%
+  mutate(Cluster = dbscan_result$cluster)
+
+# Filter out the outliers (Cluster 0)
+scaled_customer_data_no_outliers <- scaled_customer_data_with_cluster %>%
+  filter(Cluster != 0) %>%
+  select(-Cluster)  #  remove the Cluster column
+```
+
+
+
+## 4. EDA (distriburion, corr)
+
+### 4.1 Distribution of each column
+```{r}
+# draw plots showing the distribution of each columns
+
+for (col in names(scaled_customer_data_no_outliers)) {
+  # Calculate dynamic binwidth
+  data_range <- range(scaled_customer_data_no_outliers[[col]], na.rm = TRUE)
+  binwidth <- (data_range[2] - data_range[1]) / 30
+  p <- ggplot(scaled_customer_data_no_outliers, aes_string(x=col)) + 
+    geom_histogram(binwidth = binwidth, fill = 'blue', alpha = 0.7) + 
+    theme_minimal() + 
+    labs(title = paste("Distribution of", col), x = col, y = "Frequency") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(p)
+}
+
+
+```
+
+### 4.2 Correlations
+
+```{r}
+# Install and load necessary libraries
+#install.packages("reshape2")
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+
+data <- scaled_customer_data_no_outliers
+
+# Calculate the correlation matrix
+numeric_columns <- data %>% select_if(is.numeric)
+correlation_matrix <- cor(numeric_columns, use = "complete.obs")
+
+correlation_matrix <- round(correlation_matrix,2)
+# Print the correlation matrix
+print(correlation_matrix)
+
+# Melt the correlation matrix to long format
+melted_corr_matrix <- melt(correlation_matrix)
+
+# Create the heatmap
+heatmap <- ggplot(data = melted_corr_matrix, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                       midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Correlation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 1, 
+                                   size = 8, hjust = 1)) +
+  coord_fixed() +
+  labs(title = "Correlation Heatmap",
+       x = "Variables",
+       y = "Variables") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Display the heatmap
+print(heatmap)
+
+```
+Here is a well-formatted markdown table for the strong correlations:
+
+#### Strong Correlations (|correlation| > 0.7)
+
+| Variable 1               | Variable 2                | Correlation |
+|--------------------------|---------------------------|-------------|
+| Total_Transactions       | Total_Products_Purchased  | 0.72        |
+| Total_Transactions       | Total_Spend               | 0.74        |
+| Total_Products_Purchased | Total_Spend               | 0.85        |
+| Cancellation_Frequency   | Total_Transactions        | 0.72        |
+
+From correlation result, we can find there are multicollinearity between the columns in the dataset.
+
+```{r}
+# Create the pair plot with smaller point size
+pairs(scaled_customer_data_no_outliers, 
+      main = "Pair Plot", 
+      col = 'blue', 
+      pch = 19,  # Solid circle
+      cex = 0.05)  # Adjust the point size
+
+```
+
+## 5. Dimension Reduction
+
+__Multicollinearity Detected__: In the previous steps, we identified that our dataset contains multicollinear features. Dimensionality reduction can help us remove redundant information and alleviate the multicollinearity issue.
+
+__Better Clustering with K-means__: Since K-means is a distance-based algorithm, having a large number of features can sometimes dilute the meaningful underlying patterns in the data. By reducing the dimensionality, we can help K-means to find more compact and well-separated clusters.    
+    
+__Noise Reduction__: By focusing only on the most important features, we can potentially remove noise in the data, leading to more accurate and stable clusters.    
+    
+__Enhanced Visualization__: In the context of customer segmentation, being able to visualize customer groups in two or three dimensions can provide intuitive insights. Dimensionality reduction techniques can facilitate this by reducing the data to a few principal components which can be plotted easily.
+    
+__Improved Computational Efficiency__: Reducing the number of features can speed up the computation time during the modeling process, making our clustering algorithm more efficient.
+
+```{r}
+# Perform PCA
+pca_result <- prcomp(scaled_customer_data_no_outliers, center = TRUE, scale. = TRUE)
+
+# Summary of PCA
+pca_summary <- summary(pca_result)
+
+# Extract the proportion of variance explained by each principal component
+explained_variance <- pca_summary$importance[2, ]
+
+# Calculate the cumulative sum of explained variance
+cumulative_variance <- cumsum(explained_variance)
+
+# Create a data frame for plotting
+cumsum_df <- data.frame(
+  Principal_Component = seq_along(cumulative_variance),
+  Cumulative_Variance = cumulative_variance
+)
+
+# Plot the cumulative sum of explained variance
+ggplot(cumsum_df, aes(x = Principal_Component, y = Cumulative_Variance)) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0.80, linetype = "dashed", color = "red") +
+  geom_text(aes(x = which(cumulative_variance >= 0.80)[1], 
+                y = 0.80, 
+                label = paste("80% Variance at PC", which(cumulative_variance >= 0.80)[1])), 
+            vjust = -1) +
+  labs(title = "Cumulative Sum of Explained Variance by Principal Components",
+       x = "Principal Component",
+       y = "Cumulative Variance Explained") +
+  theme_minimal()
+
+# Determine the number of principal components that explain at least 80% of the variance
+num_pcs <- which(cumulative_variance >= 0.80)[1]
+print(paste("Number of principal components explaining at least 80% variance:", num_pcs))
+```
+
+```{r}
+# Transform the data using the first 8 principal components
+pca_transformed_data <- as.data.frame(pca_result$x[, 1:num_pcs])
+
+head(pca_transformed_data)
+```
+
+
+## 6. Assessing Clustering Tendency
+
+### 6.1 Hopkins analysis
+check pca transformed customer data clustering tendency.
+```{r}
+library(hopkins)
+hopkins::hopkins(pca_transformed_data)
+```
+
+### 6.2 VAT, visual assessment of cluster tendency
+```{r}
+library(factoextra)
+plot_vat = fviz_dist(dist(pca_transformed_data),show_labels = FALSE)+
+  labs(title = 'Customer Data')
+
+print(plot_vat)
+```
+
+We get hopkins statistics of 1 which means this dataset is highly clusterable.
+From the VAT, we can see there are clear separated areas, suggesting this dataset is clusterable.
+
+
+## 7. kmeans
+
+### 7.1 Optimal cluster numbers
+
+Use Elbow method, Silhouette method and Gap to find the optimal K.
+```{r}
+# Elbow method
+fviz_nbclust(pca_transformed_data, kmeans, method = "wss") +
+labs(subtitle = "Elbow method")
+
+# Silhouette method
+fviz_nbclust(pca_transformed_data, kmeans, method = "silhouette")+
+labs(subtitle = "Silhouette method")
+
+
+```
+
+```{r}
+# Gap statistic
+
+set.seed(123)
+fviz_nbclust(pca_transformed_data, kmeans, nstart = 25, method = "gap_stat", nboot = 10)+
+labs(subtitle = "Gap statistic method")
+```
+
+
+Elbow method suggests k=2;
+Silhouette method suggests k=2;
+Gap statistics suggests k=1.
+
+### 7.2. Kmeans clustering result plot
+
+use kmeans to cluser the dataset and draw 2-D cluster plot
+```{r}
+km.res <- kmeans(pca_transformed_data, 2, nstart = 25)
+print(km.res)
+
+table(km.res$cluster)
+
+fviz_cluster(km.res, data = pca_transformed_data,
+             palette = c("#2E9FDF",  "#FC4E07"),
+             ellipse.type = "euclid", # Concentration ellipse
+             ggtheme = theme_minimal(),
+             geom = "point" # Only show points, no text labels
+)
+```
+
+
+## 8. Pam, Partitioning Around Medoids
+
+### 8.1 Optimal cluster numbers
+
+Use Elbow method, Silhouette method and Gap to find the optimal K.
+```{r}
+library(factoextra)
+# Elbow method
+plot_pam_elb = fviz_nbclust(pca_transformed_data, pam, method = "wss") +
+labs(subtitle = "Elbow method")
+
+print(plot_pam_elb)
+# Silhouette method
+plot_pam_sil = fviz_nbclust(pca_transformed_data, pam, method = "silhouette")+
+labs(subtitle = "Silhouette method")
+print(plot_pam_sil)
+```
+
+```{r}
+set.seed(123)
+plot_pam_gap = fviz_nbclust(pca_transformed_data, pam, nstart = 25, method = "gap_stat", nboot = 10)+
+labs(subtitle = "Gap statistic method")
+
+print(plot_pam_gap)
+```
+
+
+For PAM algorithm:
+Elbow method suggests k=2;
+Silhouette method suggests k=2;
+Gap statistics suggests k=1.
+
+### 8.2 Pam cluster plot
+
+```{r}
+pam.res <- pam(x = pca_transformed_data, k=2, diss = F)
+print(pam.res)
+
+table(pam.res$cluster)
+
+pam_cluster_fviz = fviz_cluster(pam.res, data = pca_transformed_data,
+             palette = c("#2E9FDF",  "#FC4E07"),
+             ellipse.type = "euclid", # Concentration ellipse
+             ggtheme = theme_minimal(),
+             geom = "point" # Only show points, no text labels
+)
+
+print(pam_cluster_fviz)
+```
+
+
+## 9. Cluster Validation
+
+### 9.1  Cluster internal validation 
+```{r}
+library(clValid)
+clmethods = c('kmeans','pam')
+intern = clValid(pca_transformed_data,nClust = 2:10,clMethods = clmethods,validation = "internal",maxitems = 5000)
+summary(intern)
+plot(intern)
+```
+
+All of Connectivity,Dunn,Silhouette results suggesting that kmeans with k=2 is the optimal clustering method and cluster number.
+
+###  9.2 Cluster stability validation 
+```{r}
+library(clValid)
+clmethods = c('kmeans','pam')
+stab = clValid(pca_transformed_data,nClust = 2:10,clMethods = clmethods,validation = "stability",maxitems = 5000)
+summary(stab)
+plot(stab)
+```
+
+APN scores suggests kmeans with k=2 is optimal;
+AD scores suggests pam with k=10 is optimal;
+ADM scores suggests kmeans with k=2 is optimal;
+FOM scores suggests kmeans with k=10 is optimal;
+
+## 10 Cluster Distribution Visualization
+
+### 10.1 Silhouette score
+
+
+Prepare a dataset with kmeans k=2 clustering result and original customer data
+```{r}
+library(dplyr)
+# add dbscan result to the original customer data
+customer_data_with_cluster <- customer_data %>%
+  mutate(Cluster = dbscan_result$cluster)
+
+# Filter out the outliers (Cluster 0)
+customer_data_no_outliers <- customer_data_with_cluster %>%
+  filter(Cluster != 0) %>%
+  select(-Cluster)  #  remove the Cluster column
+
+customer_data_no_outliers_with_kmCLust  <- customer_data_no_outliers %>%
+  mutate(Cluster = km.res$cluster) %>%
+  select(-CustomerID) 
+
+```
+
+
+```{r}
+library(cluster)
+# Split data by clusters
+cluster_data <- customer_data_no_outliers_with_kmCLust %>%
+  group_by(Cluster) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+
+# Convert kmeans results to a silhouette object
+sil.km <- silhouette(km.res$cluster, dist(customer_data_no_outliers_with_kmCLust))
+
+# Visualize the silhouette plot
+fviz_silhouette(sil.km, palette = "jco", ggtheme = theme_classic())
+
+```
+Interpretation of the Silhouette Plot and Table
+Average Silhouette Width: The average silhouette width for your clustering is 0.64. 
+
+Cluster 1:
+Size: 776
+Average Silhouette Width: 0.04
+Interpretation: This indicates that cluster 1 has a low silhouette width, suggesting that the points in this cluster are not well separated from other clusters and may be misclassified.
+
+Cluster 2:
+Size: 3444
+Average Silhouette Width: 0.77
+Interpretation: This cluster has a higher average silhouette width, indicating that the points in this cluster are better clustered and more distinct from points in other clusters.
+
+Conclusion:
+Cluster Quality: Cluster 2 is relatively well-defined with an average silhouette width of 0.64, indicating good clustering quality. However, Cluster 1 has a very low silhouette width of 0.04, indicating poor clustering quality and potential issues with the clustering algorithm's ability to distinguish this cluster from others.
+
+Overall Clustering: The overall average silhouette width of 0.64 suggests that the clustering solution is moderate.
+
+### 10.2 Cluster analysis and profiling
+
+
+Draw a radar chart for each cluster to display the mean of each feature of these 2 clusters.
+```{r}
+#install.packages("fmsb")
+library(fmsb)
+
+
+
+selected_columns = setdiff(names(customer_data), "CustomerID")
+
+# Create data for radar plot
+radar_data <- cluster_data %>% 
+  select(all_of(selected_columns)) %>%
+  as.data.frame()
+
+
+max_data <- customer_data_no_outliers_with_kmCLust %>%
+  summarise(across(all_of(selected_columns), max, na.rm = TRUE))
+
+min_data <- customer_data_no_outliers_with_kmCLust %>%
+  summarise(across(all_of(selected_columns), min, na.rm = TRUE))
+
+c1_scaled_radar_data = (radar_data[1,] - min_data[1,]) / (max_data[1,] -min_data[1,] )
+c2_scaled_radar_data = (radar_data[2,] - min_data[1,]) / (max_data[1,] -min_data[1,] )
+scaled_radar_data = rbind(c1_scaled_radar_data,c2_scaled_radar_data)
+# Add max and min values for the radar chart
+scaled_radar_data <- rbind(
+  max = rep(1, ncol(scaled_radar_data)),  # Max values (scaled to 1)
+  min = rep(0, ncol(scaled_radar_data)),  # Min values (scaled to 0)
+  scaled_radar_data
+)
+
+# Set row names for clarity
+row.names(scaled_radar_data) <- c("Max", "Min", "Cluster 1", "Cluster 2")
+
+# Print the scaled radar data for verification
+print(scaled_radar_data)
+
+
+```
+
+
+```{r}
+
+# Plot the radar chart with adjusted label sizes
+radarchart(scaled_radar_data,
+           axistype = 1,
+           pcol = c("blue", "red"),
+           pfcol = c(rgb(0.2, 0.5, 0.5, 0.5), rgb(0.8, 0.2, 0.5, 0.5)),
+           plwd = 2,
+           plty = 1,
+           title = "Radar Chart of Cluster Means",
+           cglcol = "grey", cglty = 1, axislabcol = "grey", caxislabels = seq(0, 1, 0.2),
+           cglwd = 0.5, vlcex = 0.5,  # Adjust the vlcex parameter for variable label size
+            cex.lab = 0.3  # Adjust the cex.lab parameter for axis label size
+)
+
+# Add a legend
+legend(x = 1, y = 1, legend = c("Cluster 1", "Cluster 2"), col = c("blue", "red"), lty = 1, lwd = 2, bty = "n")
+```
+
+#### Summary of profile of clusters
+
+| Key Attribute            | Cluster 1: "High Spend Frequent Buyers" | Cluster 2: "Low Spend Infrequent Buyers" |
+|--------------------------|----------------------------------------|----------------------------------------|
+| Size                     | 776                                    | 3444                                   |
+| Recent Purchases         | 28.5 days since last purchase          | 107.2 days since last purchase         |
+| Transaction Count        | 11.4 transactions                      | 2.7 transactions                       |
+| Total Spend              | $16,398                                | $2,676                                 |
+| Variety in Purchases     | 136 unique products                    | 38 unique products                     |
+| UK Customers             | 88.8%                                  | 91.5%                                  |
+| Cancellation Rate        | 19%                                    | 8%                                     |
+
+
+Cluster 1: "High Spend Frequent Buyers": High spending and frequent purchases with a variety of products.
+Cluster 2: "Low Spend Infrequent Buyers": Low spending and infrequent purchases with limited product variety.
